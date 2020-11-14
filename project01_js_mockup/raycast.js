@@ -30,20 +30,22 @@ class Map {
   }
   render () {
     for (var i = 0; i < MAP_NUM_ROWS; i++){
-      var tileX = j * TILE_SIZE;
-      var tileY = i * TILE_SIZE;
-      var tileColor = (this.grid =[i][j] == 1) ? "#333" : "#fff";
-      stroke ("#333");
-      fill(tileColor);
-      rect(tileX, tileY, TILE_SIZE, TILE_SIZE);
+      for (var j = 0; j < MAP_NUM_COLS; j++){
+        var tileX = j * TILE_SIZE;
+        var tileY = i * TILE_SIZE;
+        var tileColor = (this.grid[i][j] == 1) ? "#333" : "#fff";
+        stroke ("#333");
+        fill(tileColor);
+        rect(tileX, tileY, TILE_SIZE, TILE_SIZE);
+      }
     }
   }
 }
 class Player {
   constructor() {
-    this.x = WINDOW_HEIGHT / 2;
-    this.y = WINDOW_WIDTH / 2;
-    this = radius = 3;
+    this.x = WINDOW_WIDTH / 2;
+    this.y = WINDOW_HEIGHT / 2;
+    this.radius = 3;
     this.turnDirection = 0;
     this.walkDirection = 0;
     this.rotationAngle = Math.PI / 2;
@@ -69,7 +71,7 @@ class Player {
     fill("#f00");
     circle(this.x, this.y, this.radius);
     stroke("#f00");
-    line(this.x, this.y, this.x + Math.cos(this.roationAngle) * 20, this.y + Math.sin(this.rotationAngle) * 20);
+    line(this.x, this.y, this.x + Math.cos(this.rotationAngle) * 20, this.y + Math.sin(this.rotationAngle) * 20);
   }
 }
 
@@ -84,7 +86,7 @@ function keyPressed(){
   }else if(keyCode == RIGHT_ARROW){
     player.turnDirection = +1;
   }else if(keyCode == LEFT_ARROW){
-    plauer.turnDirection == -1;
+    player.turnDirection = -1;
   }
 }
 
