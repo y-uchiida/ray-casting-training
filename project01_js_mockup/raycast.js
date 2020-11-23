@@ -111,12 +111,12 @@ class Ray{
     var xintercept, yintercept; /* rayとgridの交点におけるxとyの座標 */
     var xstep, ystep; /* 次のgridとの交点までの長さ(px) */
 
-  //   /* 1. グリッドの横罫線とrayの交点での、壁との距離を計算する */
+    /* 1. グリッドの横罫線とrayの交点での、壁との距離を計算する */
     var foundHorzWallHit = false;
     var horzWallHitX = 0;
     var horzWallHitY = 0;
 
-  //   /* プレイヤーの座標と向きから、最も近い横罫線との交点のy座標を取得する */
+    /* プレイヤーの座標と向きから、最も近い横罫線との交点のy座標を取得する */
     yintercept = Math.floor(player.y / TILE_SIZE) * TILE_SIZE; /* TILE_SIZEで除算して、何本目の罫線と交点を持つかがわかる。floorで整数に直してから、タイルの大きさを乗じてグリッドとの交点を求める */
     if (this.isRayFacingDown){ /* rayが下方向に伸びてている時、プレイヤーの座標よりも下にある罫線との交点のy座標を取らなければならないので… TILE_SIZEを加算して、yinterseptを一つ下のグリッドの座標にする */
       yintercept += TILE_SIZE;
@@ -203,7 +203,7 @@ class Ray{
     this.wallHitX = (horzHitDistance < vertHitDistance) ? horzWallHitX : vertWallHitX;
     this.wallHitY = (horzHitDistance < vertHitDistance) ? horzWallHitY : vertWallHitY;
     this.distance = (horzHitDistance < vertHitDistance) ? horzHitDistance : vertHitDistance;
-    this.wasHitVertical = (horzHitDistance < vertHitDistance); /* 縦罫線と横罫線のどちらで壁に衝突したかを保持する */
+    this.wasHitVertical = (vertHitDistance < horzHitDistance); /* 縦罫線と横罫線のどちらで壁に衝突したかを保持する */
   }
   render(){
     stroke("rgba(255, 0, 0, 0.3)");
