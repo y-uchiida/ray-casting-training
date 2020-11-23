@@ -1,4 +1,4 @@
-const TILE_SIZE = 32;
+const TILE_SIZE = 60;
 const MAP_NUM_ROWS = 11;
 const MAP_NUM_COLS = 15;
 const WINDOW_WIDTH = MAP_NUM_COLS * TILE_SIZE;
@@ -6,6 +6,7 @@ const WINDOW_HEIGHT = MAP_NUM_ROWS * TILE_SIZE;
 const FOV_ANGLE = 60 * (Math.PI / 180); /* 視線の範囲60°を、ラジアン(π/180)に変換して保持する */
 const WALL_STRIP_WIDTH = 4; /* ひとつのrayが壁に当たった場合に、画面上に描画する壁の幅(px)。任意に決められるように定数として定義する */
 const NUM_RAYS = WINDOW_WIDTH / WALL_STRIP_WIDTH; /* キャストするrayの数は、1本のrayが描画する壁の幅で、画面の横幅を割った値になる */
+const MINIMAP_SCALE_FACTOR = 0.2; /* 画面の端に小さいマップを表示する */
 
 class Map {
   constructor() {
@@ -39,7 +40,12 @@ class Map {
         var tileColor = (this.grid[i][j] == 1) ? "#333" : "#fff";
         stroke ("#333");
         fill(tileColor);
-        rect(tileX, tileY, TILE_SIZE, TILE_SIZE);
+        rect(
+          tileX * MINIMAP_SCALE_FACTOR,
+          tileY * MINIMAP_SCALE_FACTOR,
+          TILE_SIZE * MINIMAP_SCALE_FACTOR,
+          TILE_SIZE * MINIMAP_SCALE_FACTOR
+        );
       }
     }
   }
@@ -70,9 +76,18 @@ class Player {
   render(){
     noStroke();
     fill("#f00");
-    circle(this.x, this.y, this.radius);
+    circle(
+      this.x * MINIMAP_SCALE_FACTOR,
+      this.y * MINIMAP_SCALE_FACTOR,
+      this.radius * MINIMAP_SCALE_FACTOR
+    );
     stroke("#f00"); /* プレイヤーの向いている方向に直線を引く */
-    line(this.x, this.y, this.x + Math.cos(this.rotationAngle) * 20, this.y + Math.sin(this.rotationAngle) * 20);
+    line(
+      this.x * MINIMAP_SCALE_FACTOR,
+      this.y * MINIMAP_SCALE_FACTOR,
+      (this.x + Math.cos(this.rotationAngle) * 20) * MINIMAP_SCALE_FACTOR,
+      (this.y + Math.sin(this.rotationAngle) * 20) * MINIMAP_SCALE_FACTOR
+    );
   }
 }
 
@@ -92,7 +107,7 @@ class Ray{
     this.isRayFacingRight = (this.rayAngle < 1/2 * Math.PI || this.rayAngle > 3/2 * Math.PI); /* rayが右向きのとき => 右下の領域にあるとき(Θ < π/2)、または右上の領域にあるとき(3π/2 < Θ) */
   }
 
-  cast(columnId){
+  cast(){
     var xintercept, yintercept; /* rayとgridの交点におけるxとyの座標 */
     var xstep, ystep; /* 次のgridとの交点までの長さ(px) */
 
@@ -193,10 +208,10 @@ class Ray{
   render(){
     stroke("rgba(255, 0, 0, 0.3)");
     line( /* playerの現在位置から、壁と衝突するところまで直線を描画する */
-      player.x,
-      player.y,
-      this.wallHitX,
-      this.wallHitY
+      player.x * MINIMAP_SCALE_FACTOR,
+      player.y * MINIMAP_SCALE_FACTOR,
+      this.wallHitX * MINIMAP_SCALE_FACTOR,
+      this.wallHitY * MINIMAP_SCALE_FACTOR
       );
     // line( /* playerの現在位置から、rayAngle の方向に30px動かした座標まで直線を描画する */
     //   player.x,
@@ -236,17 +251,78 @@ function keyReleased(){
 ** Rayクラスからインスタンスを作成し、壁に当たるかを確認する
  */
 function castAllRays(){
-  var columnId = 0;
   var rayAngle = player.rotationAngle - (FOV_ANGLE / 2); /* 最初のrayの角度は、プレイヤーの向きからFOVの半分を引いた値(プレイヤーの向きは、FOVの中心なので) */
   rays = [];
 
   for (var i=0; i<NUM_RAYS; i++){
     var ray = new Ray(rayAngle);
-    ray.cast(columnId);
+    ray.cast();
     rays.push(ray);
     rayAngle += FOV_ANGLE / NUM_RAYS; /* 次のrayの角度は、rayの数でFOVを除算した値だけ変化する */
-    columnId++;
   }
+}
+
+/*
+ ** rayごとの計算結果をもとに、壁を描画する
+ */
+function render3DProjectedWalls(){
+  for(var col = 0; col < NUM_RAYS; col++)
+  {
+    var ray = rays[col];
+    
+    /*
+     ** プレイヤーの視野範囲(FOV_ANGLE)が画面内にすべて収まるためには、画面との距離を計る必要がある
+     ** 三角関数を利用して、プレイヤーの視点と、画面平面との垂直な交点を算出する
+     */
+    var distanceProjectionPlane = (WINDOW_WIDTH / 2) / Math.tan(FOV_ANGLE / 2);
+
+    /*
+     ** rayと壁の距離で描画すると、画面の端を描画するrayほど、距離が長く計算されてしまう
+     ** 距離が長くならないように、視野の中央で交差する場合の距離に直しておく必要がある
+     */
+    var correctWallDistance = ray.distance * Math.cos(ray.rayAngle - player.rotationAngle);
+
+    /*
+     ** 三角形の相似形の性質により、描画すべき壁の高さは以下で算出される
+     ** (壁の実寸(TILE_SIZE) / (プレイヤーから壁までの距離(ray.distance) = (画面に描画される壁の大きさ) / (プレイヤーから画面までの距離)))
+     ** この式を変形して、画面上の壁の高さの値がわかる
+     */
+    var wallStripHeight = (TILE_SIZE / correctWallDistance) * distanceProjectionPlane;
+
+    /*
+     ** 縦罫線で壁に衝突した場合と、横罫線で壁に衝突した場合で壁の色を分ける(光の当たり方の表現)
+     ** rayのメンバで保持しているwasHitVert で、どちらの罫線に当たったかで条件分岐する
+     */
+    var wallCollor = 255;
+    if (ray.wasHitVertical)
+    {
+      wallCollor = 188;
+    }
+
+    /*
+     ** 壁との距離が遠いほど暗く表示する
+     ** 表示する色のalphaを少なくすることで表現する
+     */
+
+    var alpha = 200 / correctWallDistance;
+
+    fill(
+      "rgba("
+        + wallCollor + ", "
+        + wallCollor + ", "
+        + wallCollor + ", "
+        + alpha
+      + ")"
+    );
+    noStroke();
+    rect(
+      col * WALL_STRIP_WIDTH, /* 左からn列目の位置 */
+      (WINDOW_HEIGHT / 2) - (wallStripHeight / 2), /* 壁の中心が、画面の中心にくる位置 */
+      WALL_STRIP_WIDTH, /* 描画する壁の幅 */
+      wallStripHeight /* 描画する壁の高さ */
+    );
+  }
+
 }
 
 /*
@@ -290,7 +366,11 @@ function update() {
  ** フレーム更新ごとに画面の描画を行う
  */
 function draw() {
+  clear();
   update();
+
+  render3DProjectedWalls();
+
   grid.render();
   for (ray of rays){ /* 保持したrayを1本ずつ描画する */
     ray.render();
