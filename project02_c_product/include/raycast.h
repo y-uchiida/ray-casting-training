@@ -12,6 +12,10 @@
 
 	int ticksLastFrame = 0;
 
+	Uint32 *colorBuffer = NULL;
+
+	SDL_Texture *colorBufferTexture;
+
 	typedef struct s_player
 	{
 		float x;
@@ -24,7 +28,6 @@
 		int turnDirection; /* -1 で左へ旋回、 1で右へ旋回 */
 		int walkDirection; /* -1 で後退、 1で前進 */
 	}	t_player;
-
 	t_player player;
 
 	struct Ray

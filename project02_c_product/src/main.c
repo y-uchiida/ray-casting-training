@@ -44,6 +44,8 @@ int initializeWindow()
 
 void destroyWindow ()
 {
+	free(colorBuffer);
+	SDL_DestroyTexture(colorBufferTexture);
 	SDL_DestroyRenderer(renderer);
 	SDL_DestroyWindow(window);
 	SDL_Quit();
@@ -63,6 +65,37 @@ void setup()
     player.rotationAngle = PI / 2;
     player.walkSpeed = 100;
     player.turnSpeed = 45 * (PI / 180);
+
+	colorBuffer = (Uint32 *)malloc(sizeof(Uint32) * (Uint32)WINDOW_WIDTH * (Uint32)WINDOW_HEIGHT);
+	colorBufferTexture = SDL_CreateTexture(
+		renderer,
+		SDL_PIXELFORMAT_ARGB8888,
+		SDL_TEXTUREACCESS_STREAMING,
+		WINDOW_WIDTH,
+		WINDOW_HEIGHT
+	);
+}
+
+/*
+ ** colorBufferを指定の色で塗りつぶす
+ ** yが内側のwhileの条件になっているので、縦一列を塗りつぶして次の列に移動する
+ */
+void clearColorBuffer(Uint32 color)
+{
+	int x;
+	int y;
+
+	x = 0;
+	while (x < WINDOW_WIDTH)
+	{
+		y = 0;
+		while (y < WINDOW_HEIGHT)
+		{
+			colorBuffer[(WINDOW_HEIGHT * y) + x] = color;
+			y++;
+		}
+		x++;
+	}
 }
 
 /*
@@ -408,6 +441,87 @@ void update()
 	castAllRays();
 }
 
+/*
+ ** colorBufferのレンダリングを行う？
+ */
+void renderColorBuffer()
+{
+	/* 1.Textureに対して、2.指定の領域の長方形を、 3.指定の色で塗りつぶし */
+	/* NULLを与えるとTexture全体を対象にする */
+	SDL_UpdateTexture(
+		colorBufferTexture,
+		NULL,
+		colorBuffer,
+		(int)((Uint32)WINDOW_WIDTH * sizeof(Uint32))
+	);
+
+	SDL_RenderCopy(
+		renderer,
+		colorBufferTexture,
+		NULL,
+		NULL
+	);
+}
+
+void generate3DProjection()
+{
+	int i;
+	int y;
+	float distanceProjPlane;
+	float projectedWallHeight;
+	float perpDistance;
+	int wallStripHeight;
+	int wallTopPixel;
+	int wallBottomPixel;
+
+	i = 0;
+	while(i < NUM_RAYS)
+	{
+		perpDistance = rays[i].distance * cos(rays[i].rayAngle - player.rotationAngle); /* 壁のゆがみを補正するため、画面平面と垂直な直線の長さに直す */
+		distanceProjPlane = (WINDOW_WIDTH / 2) / tan(FOV_ANGLE / 2); /* 画面平面とプレイヤー視点との距離 */
+		projectedWallHeight = (TILE_SIZE / perpDistance) * distanceProjPlane; /* 描画する壁の高さ */
+		wallStripHeight = (int)projectedWallHeight;
+		wallTopPixel = (WINDOW_HEIGHT / 2) - (wallStripHeight / 2); /* 画面の高さの中心から、描画する壁の高さの半分だけ上にずらすと、壁の一番上の位置のピクセルがわかる */
+		wallTopPixel = (wallTopPixel < 0) ? 0 : wallTopPixel; /* 画面領域からはみ出す場合は0に直す */
+		wallBottomPixel = (WINDOW_HEIGHT / 2) + (wallStripHeight / 2);
+		wallBottomPixel = (wallBottomPixel > WINDOW_HEIGHT) ? WINDOW_HEIGHT : wallBottomPixel; /* 画面領域からはみ出す場合は0に直す */
+
+		/* 壁の上端から壁の下端まで、colorBufferの値を変更する */
+		y = 0;
+		while(y < WINDOW_HEIGHT)
+		{
+			if (y < wallTopPixel)
+				colorBuffer[(WINDOW_WIDTH * y) + i] = 0xff333333;
+			else if (wallTopPixel <= y && y <= wallBottomPixel)
+				colorBuffer[(WINDOW_WIDTH * y) + i] = rays[i].wasHitVertical ? 0xFFFFFFFF : 0xFFCCCCCC;
+			else
+				colorBuffer[(WINDOW_WIDTH * y) + i] = 0xff777777;
+			y++;
+		}
+		i++;
+	}
+}
+
+// void generate3DProjection() {
+//     for (int i = 0; i < NUM_RAYS; i++) {
+//         float perpDistance = rays[i].distance * cos(rays[i].rayAngle - player.rotationAngle);
+//         float distanceProjPlane = (WINDOW_WIDTH / 2) / tan(FOV_ANGLE / 2);
+//         float projectedWallHeight = (TILE_SIZE / perpDistance) * distanceProjPlane;
+
+//         int wallStripHeight = (int)projectedWallHeight;
+
+//         int wallTopPixel = (WINDOW_HEIGHT / 2) - (wallStripHeight / 2);
+//         wallTopPixel = wallTopPixel < 0 ? 0 : wallTopPixel;
+
+//         int wallBottomPixel = (WINDOW_HEIGHT / 2) + (wallStripHeight / 2);
+//         wallBottomPixel = wallBottomPixel > WINDOW_HEIGHT ? WINDOW_HEIGHT : wallBottomPixel;
+
+//         // render the wall from wallTopPixel to wallBottomPixel
+//         for (int y = wallTopPixel; y < wallBottomPixel; y++) {
+//             colorBuffer[(WINDOW_WIDTH * y) + i] = rays[i].wasHitVertical ? 0xFFFFFFFF : 0xFFCCCCCC;
+//         }
+//     }
+// }
 
 /* mainのloop内で画面描画を行う */
 void render()
@@ -415,6 +529,12 @@ void render()
 	/* 画面の描画内容を初期化(黒で塗りつぶし？) */
 	SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
 	SDL_RenderClear(renderer);
+
+	generate3DProjection();
+
+	/* colorBufferをクリアする */
+	renderColorBuffer();
+	clearColorBuffer(0xFF000000);
 
 	/* ゲーム画面上に配置するものを描画 */
 	renderMap();
