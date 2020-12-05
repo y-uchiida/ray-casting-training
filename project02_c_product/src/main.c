@@ -74,6 +74,33 @@ void setup()
 		WINDOW_WIDTH,
 		WINDOW_HEIGHT
 	);
+
+	/* 壁のテクスチャを配列に取り込みする */
+	textures[0] = (Uint32 *)REDBRICK_TEXTURE;
+	textures[1] = (Uint32 *)PURPLESTONE_TEXTURE;
+	textures[2] = (Uint32 *)MOSSYSTONE_TEXTURE;
+	textures[3] = (Uint32 *)GRAYSTONE_TEXTURE;
+	textures[4] = (Uint32 *)COLORSTONE_TEXTURE;
+	textures[5] = (Uint32 *)BLUESTONE_TEXTURE;
+	textures[6] = (Uint32 *)WOOD_TEXTURE;
+	textures[7] = (Uint32 *)EAGLE_TEXTURE;
+
+	/* テクスチャ画像のデータをtextures.hから取得するので不要 */
+	// /* 壁に表示するテクスチャ画像を生成 */
+	// /* まずはデータ格納用のメモリ領域を確保 */
+	// wallTexture = (Uint32 *)malloc(sizeof(Uint32) * (Uint32)WINDOW_WIDTH * (Uint32)WINDOW_HEIGHT); 
+	// /* loopで色を設定 */
+	// x = 0;
+	// while(x < TEXTURE_WIDTH)
+	// {
+	// 	y = 0;
+	// 	while (y < TEXTURE_HEIGHT)
+	// 	{
+	// 		wallTexture[(TEXTURE_WIDTH * y) + x] = (x % 8 && y % 8) ? 0xff0000ff : 0xff000000;
+	// 		y++;
+	// 	}
+	// 	x++;
+	// }
 }
 
 /*
@@ -117,7 +144,7 @@ void renderMap()
 		{
 			tile_x = x * TILE_SIZE;
 			tile_y = y * TILE_SIZE;
-			tile_color = (map[y][x] == 1) ? 0 : 255; /* 壁のときは黒く塗る */
+			tile_color = (map[y][x] != 0) ? 0 : 255; /* 壁のときは黒く塗る */
 
 			SDL_SetRenderDrawColor(renderer, tile_color, tile_color, tile_color, 255);
 			SDL_Rect map_tile = {
@@ -473,6 +500,11 @@ void generate3DProjection()
 	int wallStripHeight;
 	int wallTopPixel;
 	int wallBottomPixel;
+	int texNum;
+	Uint32 texture_pixel_color;
+	int textureOffsetX;
+	int textureOffsetY;
+	int distanceFromTop;
 
 	i = 0;
 	while(i < NUM_RAYS)
@@ -486,14 +518,35 @@ void generate3DProjection()
 		wallBottomPixel = (WINDOW_HEIGHT / 2) + (wallStripHeight / 2);
 		wallBottomPixel = (wallBottomPixel > WINDOW_HEIGHT) ? WINDOW_HEIGHT : wallBottomPixel; /* 画面領域からはみ出す場合は0に直す */
 
-		/* 壁の上端から壁の下端まで、colorBufferの値を変更する */
+		/* 今回のrayにおけるテクスチャの参照位置を、壁との交点座標から得る */
+		if (rays[i].wasHitVertical)
+			textureOffsetX = (int)rays[i].wallHitY % TILE_SIZE; /* TILE_SIZEとTEXTURE_HEIGHTは同じ値で設定しているので、余りを取るとテクスチャ1枚分の座標位置がわかる */
+		else
+			textureOffsetX = (int)rays[i].wallHitX % TILE_SIZE;
+
+		/* 画面の上端から壁の下端まで、colorBufferの値を変更する */
 		y = 0;
 		while(y < WINDOW_HEIGHT)
 		{
 			if (y < wallTopPixel)
 				colorBuffer[(WINDOW_WIDTH * y) + i] = 0xff333333;
 			else if (wallTopPixel <= y && y <= wallBottomPixel)
-				colorBuffer[(WINDOW_WIDTH * y) + i] = rays[i].wasHitVertical ? 0xFFFFFFFF : 0xFFCCCCCC;
+			{
+				/* 描画する壁の高さが画面の高さを超えている(画面からはみ出す)場合、テクスチャ上の参照すべきy座標ははみ出す分だけ下にずれていなければならない */
+				/* distanceFromTopに、はみ出し部分を考慮したy座標を保持する */
+				/* distanceFromTop = (今回描画するピクセルのy座標) - ( 壁の描画開始位置(調整していないのでマイナスの値になる場合あり) ) */
+				distanceFromTop = y - ( (WINDOW_HEIGHT / 2) - (wallStripHeight / 2) );
+
+				/* wallStripHeightは、壁との交点の位置の距離によって伸縮する */
+				/* wallStripHeight(描画する壁の高さ)でTEXTURE_HEIGHTを割った比率をかけてやることで、テクスチャ上のピクセルの位置がわかる */
+				textureOffsetY = (int)((distanceFromTop) * ( (float)TEXTURE_HEIGHT / wallStripHeight ));
+
+				/* textureの値を見て、入れるべき色を決定する */
+				texNum = rays[i].wallHitContent - 1;
+				texture_pixel_color = textures[texNum][(TEXTURE_WIDTH * textureOffsetY) + textureOffsetX];
+				colorBuffer[(WINDOW_WIDTH * y) + i] = texture_pixel_color;
+				// colorBuffer[(WINDOW_WIDTH * y) + i] = rays[i].wasHitVertical ? 0xFFFFFFFF : 0xFFCCCCCC;
+			}
 			else
 				colorBuffer[(WINDOW_WIDTH * y) + i] = 0xff777777;
 			y++;
