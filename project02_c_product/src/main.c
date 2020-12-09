@@ -1,61 +1,31 @@
 #include "../include/raycast.h"
 
-int initializeWindow()
-{
-	/* SDLライブラリを初期化、失敗時にエラーを返す */
-	if (SDL_Init(SDL_INIT_EVERYTHING) != 0)
-	{
-		fprintf(stderr, "Error initializing SDL.\n");
-		return (FALSE);
-	}
+t_player player;
+const int map[MAP_NUM_ROWS][MAP_NUM_COLS] = {
+	{1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1 ,1, 1, 1, 1, 1, 1, 1},
+	{1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1},
+	{1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 8, 0, 0, 0, 1},
+	{1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1},
+	{1, 0, 0, 0, 2, 2, 0, 3, 0, 4, 0, 5, 0, 6, 0, 0, 0, 0, 0, 1},
+	{1, 0, 0, 0, 0, 0, 0, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1},
+	{1, 0, 0, 0, 0, 0, 0, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1},
+	{1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 7, 0, 0, 0, 0, 0, 1},
+	{1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 5},
+	{1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 5},
+	{1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 5},
+	{1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 5},
+	{1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 5, 5, 5, 5, 5, 5}
+};
 
-	/* ウィンドウの作成 */
-	window = SDL_CreateWindow(
-		NULL, /* ウィンドウのタイトルバーの内容？ */
-		SDL_WINDOWPOS_CENTERED, /* ウィンドウをスクリーン上のどこに表示するかを指定(横方向) */
-		SDL_WINDOWPOS_CENTERED, /* ウィンドウをスクリーン上のどこに表示するかを指定(縦方向) */
-		WINDOW_WIDTH, /* 表示するウィンドウの幅 */
-		WINDOW_HEIGHT, /* 表示するウィンドウの高さ */
-		SDL_WINDOW_BORDERLESS /* ボーダー無しでウィンドウを表示 */
-	);
-	if (!window)
-	{
-		fprintf(stderr, "Error creating SDL window.\n");
-		return (FALSE);
-	}
-
-	/* rendererの作成 */
-	renderer = SDL_CreateRenderer(
-		window, /* 作成したwindowポインタを渡すと、それに対するrendererが作成されるっぽい */
-		-1, /* デフォルトのドライバを指定 */
-		0
-	);
-	if (!renderer)
-	{
-		fprintf(stderr, "Error creating SDL renderer.\n");
-		return (FALSE);
-	}
-
-	/* rendererのブレンドモード？を指定する */
-	SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
-
-	return (TRUE);
-}
-
-void destroyWindow ()
-{
-	free(colorBuffer);
-	SDL_DestroyTexture(colorBufferTexture);
-	SDL_DestroyRenderer(renderer);
-	SDL_DestroyWindow(window);
-	SDL_Quit();
-}
 
 /*
  ** ゲームに利用する各種オブジェクトなどの情報を初期化・セットアップする
  */
-void setup()
+bool setup()
 {
+	/* ヘッダファイルで宣言だけ行った変数を初期化 */
+	ticksLastFrame = 0;
+
     player.x = WINDOW_WIDTH / 2;
     player.y = WINDOW_HEIGHT / 2;
     player.width = 1;
@@ -66,24 +36,23 @@ void setup()
     player.walkSpeed = 100;
     player.turnSpeed = 45 * (PI / 180);
 
-	colorBuffer = (Uint32 *)malloc(sizeof(Uint32) * (Uint32)WINDOW_WIDTH * (Uint32)WINDOW_HEIGHT);
-	colorBufferTexture = SDL_CreateTexture(
-		renderer,
-		SDL_PIXELFORMAT_ARGB8888,
-		SDL_TEXTUREACCESS_STREAMING,
-		WINDOW_WIDTH,
-		WINDOW_HEIGHT
-	);
+	/* upngライブラリでpng画像を読み込み */
+	if (loadWallTextures() == false)
+	{
+		fprintf(stderr, "Error: failed load wall texture files.'\n");
+		return (false);
+	}
 
-	/* 壁のテクスチャを配列に取り込みする */
-	textures[0] = (Uint32 *)REDBRICK_TEXTURE;
-	textures[1] = (Uint32 *)PURPLESTONE_TEXTURE;
-	textures[2] = (Uint32 *)MOSSYSTONE_TEXTURE;
-	textures[3] = (Uint32 *)GRAYSTONE_TEXTURE;
-	textures[4] = (Uint32 *)COLORSTONE_TEXTURE;
-	textures[5] = (Uint32 *)BLUESTONE_TEXTURE;
-	textures[6] = (Uint32 *)WOOD_TEXTURE;
-	textures[7] = (Uint32 *)EAGLE_TEXTURE;
+	/* png画像を読込するので、テクスチャの配列データはロードしなくてよい */
+	// /* 壁のテクスチャを配列に取り込みする */
+	// textures[0] = (Uint32 *)REDBRICK_TEXTURE;
+	// textures[1] = (Uint32 *)PURPLESTONE_TEXTURE;
+	// textures[2] = (Uint32 *)MOSSYSTONE_TEXTURE;
+	// textures[3] = (Uint32 *)GRAYSTONE_TEXTURE;
+	// textures[4] = (Uint32 *)COLORSTONE_TEXTURE;
+	// textures[5] = (Uint32 *)BLUESTONE_TEXTURE;
+	// textures[6] = (Uint32 *)WOOD_TEXTURE;
+	// textures[7] = (Uint32 *)EAGLE_TEXTURE;
 
 	/* テクスチャ画像のデータをtextures.hから取得するので不要 */
 	// /* 壁に表示するテクスチャ画像を生成 */
@@ -101,35 +70,18 @@ void setup()
 	// 	}
 	// 	x++;
 	// }
+
+	return (true);
 }
 
-/*
- ** colorBufferを指定の色で塗りつぶす
- ** yが内側のwhileの条件になっているので、縦一列を塗りつぶして次の列に移動する
- */
-void clearColorBuffer(Uint32 color)
-{
-	int x;
-	int y;
 
-	x = 0;
-	while (x < WINDOW_WIDTH)
-	{
-		y = 0;
-		while (y < WINDOW_HEIGHT)
-		{
-			colorBuffer[(WINDOW_HEIGHT * y) + x] = color;
-			y++;
-		}
-		x++;
-	}
-}
 
 /*
  ** マップの描画を行う関数
  */
 void renderMap()
 {
+	/*
 	int x;
 	int y;
 	int tile_x;
@@ -144,7 +96,7 @@ void renderMap()
 		{
 			tile_x = x * TILE_SIZE;
 			tile_y = y * TILE_SIZE;
-			tile_color = (map[y][x] != 0) ? 0 : 255; /* 壁のときは黒く塗る */
+			tile_color = (map[y][x] != 0) ? 0 : 255;  // 壁のときは黒く塗る
 
 			SDL_SetRenderDrawColor(renderer, tile_color, tile_color, tile_color, 255);
 			SDL_Rect map_tile = {
@@ -158,6 +110,7 @@ void renderMap()
 		}
 		y++;
 	}
+	*/
 }
 
 /*
@@ -169,7 +122,7 @@ int is_wall(float x, float y)
 	int mapGridIndex_y;
 
 	if(x < 0 || x > WINDOW_WIDTH || y < 0 || y > WINDOW_HEIGHT)
-		return TRUE;
+		return true;
 
 	mapGridIndex_x = floor(x / TILE_SIZE);
 	mapGridIndex_y = floor(y / TILE_SIZE);
@@ -190,7 +143,7 @@ void movePlayer(float deltaTime)
 	newPlayerPos_x = player.x + cos(player.rotationAngle) * moveStep;
 	newPlayerPos_y = player.y + sin(player.rotationAngle) * moveStep;
 
-	if (is_wall(newPlayerPos_x, newPlayerPos_y) != TRUE) /* 移動した先が壁ではない場合のみ、座標を更新する */
+	if (is_wall(newPlayerPos_x, newPlayerPos_y) != true) /* 移動した先が壁ではない場合のみ、座標を更新する */
 	{
 		player.x = newPlayerPos_x;
 		player.y = newPlayerPos_y;
@@ -200,6 +153,7 @@ void movePlayer(float deltaTime)
 /* playerの位置を描画する */
 void renderPlayer()
 {
+	/*
     SDL_SetRenderDrawColor(renderer, 255, 0, 0, 255);
 	SDL_Rect playerRect = {
 		player.x * MINIMAP_SCALE_FACTOR,
@@ -216,6 +170,7 @@ void renderPlayer()
 		MINIMAP_SCALE_FACTOR * player.x + cos(player.rotationAngle) * 40,
 		MINIMAP_SCALE_FACTOR * player.y + sin(player.rotationAngle) * 40
 	);
+	*/
 }
 
 /*
@@ -223,6 +178,7 @@ void renderPlayer()
  */
 void renderRays()
 {
+	/*
 	int i;
 	SDL_SetRenderDrawColor(renderer, 255, 0, 0, 255);
 	i = 0;
@@ -237,7 +193,7 @@ void renderRays()
 		);
 		i++;
 	}
-
+	*/
 }
 
 /*
@@ -251,13 +207,13 @@ void processInput()
 	{
 		case SDL_QUIT:
 		{
-			isGameRunning = FALSE;
+			isGameRunning = false;
 			break;
 		}
 		case SDL_KEYDOWN:
 		{
 			if (event.key.keysym.sym == SDLK_ESCAPE)
-				isGameRunning = FALSE;
+				isGameRunning = false;
 			if (event.key.keysym.sym == SDLK_UP)
 				player.walkDirection = +1;
 			if (event.key.keysym.sym == SDLK_DOWN)
@@ -321,7 +277,7 @@ void castRay(float rayAngle, int stripID)
 	isRayFacingRight = rayAngle < 0.5 * PI || rayAngle > 1.5 * PI;
 
 	/* ----- 1. グリッドの横罫線とrayの交点での、壁との距離を計算する ----- */
-	int foundHorzWallHit = FALSE;
+	bool foundHorzWallHit = false;
 	int horzWallContent = 0;
 	float horzWallHitX = 0;
 	float horzWallHitY = 0;
@@ -353,7 +309,7 @@ void castRay(float rayAngle, int stripID)
 		x_toCheck = nextHorzTouchX;
 		y_toCheck = nextHorzTouchY + ((!isRayFacingDown) ? -1 : 0);
 		if (is_wall(x_toCheck, y_toCheck)){ /* 壁と衝突する交点が見つかったら、x, yの座標を保持してループを抜ける */
-			foundHorzWallHit = TRUE;
+			foundHorzWallHit = true;
 			horzWallHitX = nextHorzTouchX;
 			horzWallHitY = nextHorzTouchY;
 			horzWallContent = map[(int)floor(y_toCheck / TILE_SIZE)][(int)floor(nextHorzTouchX / TILE_SIZE)];
@@ -366,7 +322,7 @@ void castRay(float rayAngle, int stripID)
 
 	
 	/* ----- 2. グリッドの縦罫線とrayの交点での、壁との距離を計算する ----- */
-	int foundVertWallHit = FALSE;
+	bool foundVertWallHit = false;
 	int vertWallContent = 0;
 	float vertWallHitX = 0;
 	float vertWallHitY = 0;
@@ -399,7 +355,7 @@ void castRay(float rayAngle, int stripID)
 		x_toCheck = nextVertTouchX + (!(isRayFacingRight) ? -1 : 0);
 		y_toCheck = nextVertTouchY;
 		if (is_wall(x_toCheck, y_toCheck)){ /* 壁と衝突する交点が見つかったら、x, yの座標を保持してループを抜ける */
-		foundVertWallHit = TRUE;
+		foundVertWallHit = true;
 		vertWallHitX = nextVertTouchX;
 		vertWallHitY = nextVertTouchY;
 		vertWallContent = map[(int)floor(y_toCheck / TILE_SIZE)][(int)floor(x_toCheck / TILE_SIZE)];
@@ -468,50 +424,30 @@ void update()
 	castAllRays();
 }
 
-/*
- ** colorBufferのレンダリングを行う？
- */
-void renderColorBuffer()
-{
-	/* 1.Textureに対して、2.指定の領域の長方形を、 3.指定の色で塗りつぶし */
-	/* NULLを与えるとTexture全体を対象にする */
-	SDL_UpdateTexture(
-		colorBufferTexture,
-		NULL,
-		colorBuffer,
-		(int)((Uint32)WINDOW_WIDTH * sizeof(Uint32))
-	);
 
-	SDL_RenderCopy(
-		renderer,
-		colorBufferTexture,
-		NULL,
-		NULL
-	);
-}
 
-void generate3DProjection()
+void renderWallProjection(void)
 {
-	int i;
+	int x;
 	int y;
-	float distanceProjPlane;
 	float projectedWallHeight;
 	float perpDistance;
 	int wallStripHeight;
 	int wallTopPixel;
 	int wallBottomPixel;
 	int texNum;
-	Uint32 texture_pixel_color;
+	uint32_t texture_pixel_color;
 	int textureOffsetX;
 	int textureOffsetY;
+	int texture_width;
+	int texture_height;
 	int distanceFromTop;
 
-	i = 0;
-	while(i < NUM_RAYS)
+	x = 0;
+	while(x < NUM_RAYS)
 	{
-		perpDistance = rays[i].distance * cos(rays[i].rayAngle - player.rotationAngle); /* 壁のゆがみを補正するため、画面平面と垂直な直線の長さに直す */
-		distanceProjPlane = (WINDOW_WIDTH / 2) / tan(FOV_ANGLE / 2); /* 画面平面とプレイヤー視点との距離 */
-		projectedWallHeight = (TILE_SIZE / perpDistance) * distanceProjPlane; /* 描画する壁の高さ */
+		perpDistance = rays[x].distance * cos(rays[x].rayAngle - player.rotationAngle); /* 壁のゆがみを補正するため、画面平面と垂直な直線の長さに直す */
+		projectedWallHeight = (TILE_SIZE / perpDistance) * DIST_PROJ_PLANE; /* 描画する壁の高さ */
 		wallStripHeight = (int)projectedWallHeight;
 		wallTopPixel = (WINDOW_HEIGHT / 2) - (wallStripHeight / 2); /* 画面の高さの中心から、描画する壁の高さの半分だけ上にずらすと、壁の一番上の位置のピクセルがわかる */
 		wallTopPixel = (wallTopPixel < 0) ? 0 : wallTopPixel; /* 画面領域からはみ出す場合は0に直す */
@@ -519,18 +455,24 @@ void generate3DProjection()
 		wallBottomPixel = (wallBottomPixel > WINDOW_HEIGHT) ? WINDOW_HEIGHT : wallBottomPixel; /* 画面領域からはみ出す場合は0に直す */
 
 		/* 今回のrayにおけるテクスチャの参照位置を、壁との交点座標から得る */
-		if (rays[i].wasHitVertical)
-			textureOffsetX = (int)rays[i].wallHitY % TILE_SIZE; /* TILE_SIZEとTEXTURE_HEIGHTは同じ値で設定しているので、余りを取るとテクスチャ1枚分の座標位置がわかる */
+		if (rays[x].wasHitVertical)
+			textureOffsetX = (int)rays[x].wallHitY % TILE_SIZE; /* TILE_SIZEとTEXTURE_HEIGHTは同じ値で設定しているので、余りを取るとテクスチャ1枚分の座標位置がわかる */
 		else
-			textureOffsetX = (int)rays[i].wallHitX % TILE_SIZE;
+			textureOffsetX = (int)rays[x].wallHitX % TILE_SIZE;
+		
+		/* ぶつかった壁のインデックスの値を見て、参照するテクスチャを決定する */
+		texNum = rays[x].wallHitContent - 1;
+        texture_width = wallTextures[texNum].width;
+        texture_height = wallTextures[texNum].height;
 
 		/* 画面の上端から壁の下端まで、colorBufferの値を変更する */
 		y = 0;
 		while(y < WINDOW_HEIGHT)
 		{
 			if (y < wallTopPixel)
-				colorBuffer[(WINDOW_WIDTH * y) + i] = 0xff333333;
-			else if (wallTopPixel <= y && y <= wallBottomPixel)
+				drawPixel(x, y, 0xff333333);
+				// colorBuffer[(WINDOW_WIDTH * y) + x] = 0xff333333;
+			else if (wallTopPixel <= y && y < wallBottomPixel)
 			{
 				/* 描画する壁の高さが画面の高さを超えている(画面からはみ出す)場合、テクスチャ上の参照すべきy座標ははみ出す分だけ下にずれていなければならない */
 				/* distanceFromTopに、はみ出し部分を考慮したy座標を保持する */
@@ -538,20 +480,19 @@ void generate3DProjection()
 				distanceFromTop = y - ( (WINDOW_HEIGHT / 2) - (wallStripHeight / 2) );
 
 				/* wallStripHeightは、壁との交点の位置の距離によって伸縮する */
-				/* wallStripHeight(描画する壁の高さ)でTEXTURE_HEIGHTを割った比率をかけてやることで、テクスチャ上のピクセルの位置がわかる */
-				textureOffsetY = (int)((distanceFromTop) * ( (float)TEXTURE_HEIGHT / wallStripHeight ));
+				/* wallStripHeight(描画する壁の高さ)でtexture_heightを割った比率をかけてやることで、テクスチャ上のピクセルの位置がわかる */
+				textureOffsetY = (int)((distanceFromTop) * ( (float)texture_height / wallStripHeight ));
 
-				/* textureの値を見て、入れるべき色を決定する */
-				texNum = rays[i].wallHitContent - 1;
-				texture_pixel_color = textures[texNum][(TEXTURE_WIDTH * textureOffsetY) + textureOffsetX];
-				colorBuffer[(WINDOW_WIDTH * y) + i] = texture_pixel_color;
-				// colorBuffer[(WINDOW_WIDTH * y) + i] = rays[i].wasHitVertical ? 0xFFFFFFFF : 0xFFCCCCCC;
+				texture_pixel_color = wallTextures[texNum].texture_buffer[(texture_width * textureOffsetY) + textureOffsetX];
+				drawPixel(x, y, texture_pixel_color);
+				// colorBuffer[(WINDOW_WIDTH * y) + x] = texture_pixel_color;
 			}
 			else
-				colorBuffer[(WINDOW_WIDTH * y) + i] = 0xff777777;
+				drawPixel(x, y, 0xff777777);
+				// colorBuffer[(WINDOW_WIDTH * y) + x] = 0xff777777;
 			y++;
 		}
-		i++;
+		x++;
 	}
 }
 
@@ -579,35 +520,40 @@ void generate3DProjection()
 /* mainのloop内で画面描画を行う */
 void render()
 {
-	/* 画面の描画内容を初期化(黒で塗りつぶし？) */
-	SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
-	SDL_RenderClear(renderer);
-
-	generate3DProjection();
-
 	/* colorBufferをクリアする */
-	renderColorBuffer();
 	clearColorBuffer(0xFF000000);
 
+	renderWallProjection();
+
+	drawRect(100, 200, 500, 300, 0xffffffff);
+
 	/* ゲーム画面上に配置するものを描画 */
-	renderMap();
-	renderRays();
-	renderPlayer();
+	//renderMap();
+	//renderRays();
+	//renderPlayer();
+
+	renderColorBuffer();
 
 	/*sample01: playerの位置に四角形を描画する*/
 	// SDL_SetRenderDrawColor(renderer, 255, 255, 0, 255);
 	// SDL_Rect rect = {playerX, playerY, 20, 20};
 	// SDL_RenderFillRect(renderer, &rect);
 
-	/* バッファに描画した画面をrendererに送信する？ */
-	SDL_RenderPresent(renderer);
 }
 
 int main ()
 {
-	isGameRunning = initializeWindow();
+	if ((isGameRunning = initializeWindow()) == false)
+	{
+		fprintf(stderr, "Error: SDL window cant start.\n");
+		return(-1);
+	}
 
-	setup();
+	if(setup() == false)
+	{
+		fprintf(stderr, "start game failed.\n");
+		return (-1);
+	}
 
 	while (isGameRunning)
 	{

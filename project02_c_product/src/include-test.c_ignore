@@ -1,0 +1,8 @@
+#include "../include/raycast.h"
+
+int main()
+{
+	printf("compile succsess.\n");
+	return (0);
+}
+
