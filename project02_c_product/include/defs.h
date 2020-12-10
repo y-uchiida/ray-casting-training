@@ -8,8 +8,6 @@
 	#define FRAME_TIME_LENGTH (1000 / FPS)
 
 	#define TILE_SIZE 64
-	#define MAP_NUM_ROWS 13
-	#define MAP_NUM_COLS 20
 	#define NUM_TEXTURES 9
 
 	#define MINIMAP_SCALE_FACTOR 0.2
