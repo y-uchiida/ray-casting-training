@@ -11,6 +11,7 @@
 	#include "./graphics.h"
 	#include "./textures.h"
 	#include "./map.h"
+	#include "./wall.h"
 	#include "./ray.h"
 	#include "./player.h"
 

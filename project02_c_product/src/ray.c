@@ -6,12 +6,12 @@ ray_t rays[NUM_RAYS];
  ** normalizeAngle(angle):
  ** 与えられた角度を 0 ~ 2π の範囲に変換する
  */
-float normalizeAngle(float angle)
+void normalizeAngle(float *angle)
 {
-	angle = remainder(angle, TWO_PI);
-	if (angle < 0) 
-		angle = TWO_PI + angle;
-    return angle;
+	*angle = remainder(*angle, TWO_PI);
+	if (*angle < 0) 
+		*angle = TWO_PI + *angle;
+    return ;
 }
 
 float distanceBetweenPoints(float x1, float y1, float x2, float y2)
@@ -39,7 +39,7 @@ void castRay(float rayAngle, int stripID)
 	int isRayFacingDown;
 	int isRayFacingRight;
 
-	rayAngle = normalizeAngle(rayAngle);
+	normalizeAngle(&rayAngle);
 	isRayFacingDown = rayAngle > 0 && rayAngle < PI;
 	isRayFacingRight = rayAngle < 0.5 * PI || rayAngle > 1.5 * PI;
 
@@ -177,20 +177,26 @@ void castAllRays(void)
  */
 void renderRays(void)
 {
-	/*
 	int i;
-	SDL_SetRenderDrawColor(renderer, 255, 0, 0, 255);
+	// SDL_SetRenderDrawColor(renderer, 255, 0, 0, 255);
 	i = 0;
 	while (i < NUM_RAYS)
 	{
-		SDL_RenderDrawLine(
-			renderer,
+		drawLine(
 			MINIMAP_SCALE_FACTOR * player.x,
 			MINIMAP_SCALE_FACTOR * player.y,
 			MINIMAP_SCALE_FACTOR * rays[i].wallHitX,
-			MINIMAP_SCALE_FACTOR * rays[i].wallHitY
+			MINIMAP_SCALE_FACTOR * rays[i].wallHitY,
+			0xff0000ff
 		);
+
+		// SDL_RenderDrawLine(
+		// 	renderer,
+		// 	MINIMAP_SCALE_FACTOR * player.x,
+		// 	MINIMAP_SCALE_FACTOR * player.y,
+		// 	MINIMAP_SCALE_FACTOR * rays[i].wallHitX,
+		// 	MINIMAP_SCALE_FACTOR * rays[i].wallHitY
+		// );
 		i++;
 	}
-	*/
 }

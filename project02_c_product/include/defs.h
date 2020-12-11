@@ -23,4 +23,6 @@
 	/* 壁のゆがみを補正するため、画面平面と垂直な直線の長さに直す */
 	#define DIST_PROJ_PLANE ((WINDOW_WIDTH / 2) / tan(FOV_ANGLE / 2))
 
+	typedef uint32_t color_t;
+
 #endif

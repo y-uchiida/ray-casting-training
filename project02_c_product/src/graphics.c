@@ -152,3 +152,42 @@ void drawRect(int x, int y, int width, int height, uint32_t color)
 		i++;
 	}
 }
+
+/*
+ ** rendererに線分を描画する
+*/
+void drawLine(int x0, int y0, int x1, int y1, uint32_t color)
+{
+	int i;
+	int delta_x;
+	int delta_y;
+	int longestSideLength;
+	float increment_x;
+	float increment_y;
+	float current_x;
+	float current_y;
+
+	/* 2点間の、xとyの変化量 */
+	delta_x = x1 - x0;
+	delta_y = y1 - y0;
+
+	/* xとyの変化量のうち、絶対値が大きいほうをとる */
+	longestSideLength = (abs(delta_x) >= abs(delta_y)) ? abs(delta_x) : abs(delta_y);
+
+	/* x, yそれぞれの成分における傾き */
+	increment_x = delta_x / (float)longestSideLength;
+	increment_y = delta_y / (float)longestSideLength;
+
+	current_x = x0;
+	current_y = y0;
+
+	i = 0;
+	while(i < longestSideLength)
+	{
+		drawPixel(round(current_x), round(current_y), color);
+		current_x += increment_x;
+		current_y += increment_y;
+		i++;
+	}
+	return ;
+}

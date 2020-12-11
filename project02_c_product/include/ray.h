@@ -18,7 +18,7 @@ typedef struct Ray
 extern ray_t rays[NUM_RAYS];
 
 void castRay(float rayAngle, int stripID);
-float normalizeAngle(float angle);
+void normalizeAngle(float *angle);
 float distanceBetweenPoints(float x1, float y1, float x2, float y2);
 void castAllRays(void);
 void renderRays(void);
